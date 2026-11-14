@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>سامانه سنجش خواب‌آلودگی و تمرکز</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap">
+<style>
+:root{--bg:#f2f6f6;--card:#fff;--ink:#12232b;--mute:#5d7078;--line:#d5e0e2;--ok:#0f766e;--warn:#b45309;--bad:#b91c1c;--accent:#0f766e}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1a1f;--card:#16262d;--ink:#e6f0f1;--mute:#93a8ae;--line:#26393f;--ok:#2dd4bf;--warn:#fbbf24;--bad:#f87171;--accent:#2dd4bf}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.7 Vazirmatn,Tahoma,sans-serif}
+header{padding:28px 20px 8px;max-width:980px;margin:auto}
+h1{margin:0;font-size:1.7rem;font-weight:800}
+header p{margin:4px 0 0;color:var(--mute);max-width:60ch}
+nav{max-width:980px;margin:16px auto 0;padding:0 20px;display:flex;gap:6px;border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;border-bottom:3px solid transparent;color:var(--mute);font:600 1rem Vazirmatn,Tahoma;padding:10px 16px;cursor:pointer}
+nav button.on{color:var(--ink);border-color:var(--accent)}
+main{max-width:980px;margin:auto;padding:20px}
+section{display:none}section.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.stage{position:relative;background:#000;border-radius:10px;overflow:hidden;aspect-ratio:4/3}
+.stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.banner{position:absolute;inset-inline:0;bottom:0;padding:10px 14px;font-weight:800;font-size:1.3rem;text-align:center;color:#fff;background:rgba(185,28,28,.88);display:none}
+.hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cfe;text-align:center;padding:20px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.btn{font:600 .95rem Vazirmatn,Tahoma;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 18px;cursor:pointer}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .btn{color:#06201d}}
+.btn.alt{background:none;color:var(--accent)}.btn.bad{background:none;border-color:var(--bad);color:var(--bad)}
+.btn:focus-visible,nav button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.btn:disabled{opacity:.4;cursor:default}
+.status{font-size:1.4rem;font-weight:800}
+dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
+dt{color:var(--mute)}dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.big{font-size:2.6rem;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.meter{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;width:0;background:var(--ok)}
+canvas#chart{width:100%;height:260px;display:block}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto}
+h2{font-size:1.15rem;margin:0 0 10px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.empty{color:var(--mute);padding:14px 0}
+p.note{color:var(--mute);font-size:.9rem;max-width:70ch}
+code{background:var(--bg);padding:1px 6px;border-radius:4px;direction:ltr;unicode-bidi:embed}
+</style>
+</head>
+<body>
+<header>
+  <h1>سامانه هوشمند سنجش خواب‌آلودگی و تمرکز</h1>
+  <p>با وب‌کم، بسته‌بودن چشم، خمیازه و افتادن سر را تشخیص می‌دهد، هشدار می‌دهد و نتیجه را همین‌جا گزارش می‌کند. تصویر هرگز از مرورگر شما خارج نمی‌شود.</p>
+</header>
+<nav role="tablist">
+  <button class="on" data-tab="live">پایش زنده</button>
+  <button data-tab="report">گزارش و نتایج</button>
+  <button data-tab="about">روش کار</button>
+</nav>
+<main>
+<section id="live" class="on">
+  <div class="grid">
+    <div>
+      <div class="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div class="hint" id="hint">برای شروع، دکمه «شروع پایش» را بزنید و اجازه دوربین را بدهید.</div>
+        <div class="banner" id="banner"></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="start">شروع پایش</button>
+        <button class="btn bad" id="stop" disabled>پایان و ذخیره جلسه</button>
+        <button class="btn alt" id="recal" disabled>کالیبراسیون دوباره</button>
+      </div>
+    </div>
+    <div class="card" aria-live="polite">
+      <div class="status" id="status">آماده</div>
+      <div style="margin-top:14px;color:var(--mute)">امتیاز تمرکز این جلسه</div>
+      <div class="big" id="score">—</div>
+      <div class="meter"><i id="scoreBar"></i></div>
+      <dl>
+        <dt>مدت جلسه</dt><dd id="dur">۰:۰۰</dd>
+        <dt>خمیازه</dt><dd id="cYawn">0</dd>
+        <dt>چشم بسته (بیش از ۲ ثانیه)</dt><dd id="cEye">0</dd>
+        <dt>سر پایین</dt><dd id="cHead">0</dd>
+        <dt>تعداد آلارم</dt><dd id="cAlarm">0</dd>
+        <dt>EAR / MAR / Pitch</dt><dd id="raw" dir="ltr" style="text-align:right">—</dd>
+      </dl>
+    </div>
+  </div>
+  <p class="note" style="margin-top:16px">ثانیه‌های اول ۵ ثانیه کالیبراسیون است: رو به دوربین، چشم باز، دهان بسته و سر صاف بنشینید.</p>
+</section>
+
+<section id="report">
+  <div class="cols" id="totals"></div>
+  <div class="card" style="margin-bottom:20px">
+    <h2>امتیاز تمرکز در ۷ روز اخیر</h2>
+    <canvas id="chart" aria-label="نمودار امتیاز تمرکز هفتگی"></canvas>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <h2>رویدادهای هر روز</h2>
+    <div class="scroll"><table id="dayTable"></table></div>
+  </div>
+  <div class="card" style="margin-bottom:20px">
+    <h2>جلسه‌ها</h2>
+    <div class="scroll"><table id="sessTable"></table></div>
+  </div>
+  <div class="card">
+    <h2>آخرین رویدادها</h2>
+    <div class="scroll"><table id="evTable"></table></div>
+  </div>
+  <div class="row">
+    <button class="btn alt" id="dlSess">دانلود جلسه‌ها (CSV)</button>
+    <button class="btn alt" id="dlEv">دانلود رویدادها (CSV)</button>
+    <button class="btn bad" id="clear">پاک کردن همه داده‌ها</button>
+  </div>
+  <p class="note">داده‌ها فقط در مرورگر همین دستگاه ذخیره می‌شوند. با پاک کردن داده‌های مرورگر از بین می‌روند، پس برای نگه‌داشتن، فایل CSV را دانلود کنید.</p>
+</section>
+
+<section id="about">
+  <div class="card">
+    <h2>این سامانه چگونه کار می‌کند؟</h2>
+    <p>این یک سامانه مبتنی بر قاعده است که روی خروجی مدل پیش‌آموزش‌دیده MediaPipe Face Landmarker اجرا می‌شود. مدل ۴۷۸ نقطه صورت را پیدا می‌کند و سه شاخص از آن‌ها محاسبه می‌شود:</p>
+    <dl>
+      <dt>EAR</dt><dd>نسبت باز بودن پلک: میانگین دو فاصله عمودی چشم تقسیم بر عرض چشم. زیر ۶۵٪ مقدار حالت عادی شما یعنی چشم بسته.</dd>
+      <dt>MAR</dt><dd>نسبت باز بودن دهان، با همان ایده برای لب‌ها. بالاتر از مقدار عادی + ۰٫۲۵ یعنی دهان باز.</dd>
+      <dt>Pitch</dt><dd>نسبت فاصله پیشانی تا بینی به فاصله بینی تا چانه. با پایین آمدن سر بزرگ‌تر می‌شود.</dd>
+    </dl>
+    <h2 style="margin-top:18px">قواعد هشدار</h2>
+    <p>چشم بسته بیش از ۲ ثانیه یا سر پایین بیش از ۱٫۵ ثانیه: آلارم صوتی. دهان باز بیش از ۱٫۵ ثانیه: یک خمیازه ثبت می‌شود. چشم بسته بیش از ۱ ثانیه، خمیازه و سر پایین از امتیاز تمرکز کم می‌کنند و پلک زدن عادی اثری ندارد.</p>
+    <p>امتیاز تمرکز = ثانیه‌های متمرکز ÷ ثانیه‌هایی که چهره دیده شده (بدون احتساب لحظه‌هایی که چهره دیده نمی‌شود).</p>
+    <h2 style="margin-top:18px">محدودیت‌ها</h2>
+    <p>نور کم، عینک آفتابی، موی روی چشم و زاویه زیاد دوربین دقت را کم می‌کنند. آستانه‌ها برای هر فرد کالیبره می‌شوند، ولی این ابزار تشخیص پزشکی نیست و نباید برای رانندگی به‌عنوان تنها هشدار به آن تکیه کرد.</p>
+  </div>
+</section>
+</main>
+
+<script type="module">
+import {FaceLandmarker, FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+const $ = id => document.getElementById(id);
+const CFG = {closed:2, eyeUnfocus:1, yawn:1.5, head:1.5, calib:5, pitchTh:18};
+const R_EYE=[33,160,158,133,153,144], L_EYE=[362,385,387,263,373,380], MOUTH=[78,308,13,14,82,87,312,317];
+const fa = n => String(n).replace(/\d/g, d => "۰۱۲۳۴۵۶۷۸۹"[d]);
+
+/* ---------- ذخیره‌سازی ---------- */
+const store = {
+  get(k){ try{ return JSON.parse(localStorage.getItem(k)) || []; }catch(e){ return []; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const pad = n => String(n).padStart(2,"0");
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const stamp = d => `${dayKey(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+
+/* ---------- تب‌ها ---------- */
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+  if (b.dataset.tab === "report") renderReport();
+});
+
+/* ---------- آلارم ---------- */
+let actx, beepTimer;
+function alarmStart(){
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const beep = () => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.frequency.value = 880; g.gain.value = .25;
+      o.connect(g); g.connect(actx.destination);
+      o.start(); o.stop(actx.currentTime + .3);
+    };
+    beep(); beepTimer = setInterval(beep, 600);
+  }catch(e){}
+}
+const alarmStop = () => { clearInterval(beepTimer); beepTimer = null; };
+
+/* ---------- محاسبات ---------- */
+const d2 = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+const pts = (lm, idx, w, h) => idx.map(i => [lm[i].x*w, lm[i].y*h]);
+const ear = p => (d2(p[1],p[5]) + d2(p[2],p[4])) / (2*d2(p[0],p[3]));
+const mar = p => (d2(p[2],p[3]) + d2(p[4],p[5]) + d2(p[6],p[7])) / (3*d2(p[0],p[1]));
+const pitchOf = lm => { const b = Math.abs(lm[152].y - lm[1].y); return b ? Math.abs(lm[1].y - lm[10].y)/b : 0; };
+const median = a => { const s=[...a].sort((x,y)=>x-y), m=s.length>>1; return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+
+class Tracker{
+  constructor(name, confirm){ this.name=name; this.confirm=confirm; this.since=null; this.confirmed=false; this.count=0; }
+  update(active, now){
+    if(!active){ this.close(now); return 0; }
+    if(this.since===null) this.since = now;
+    const el = (now - this.since)/1000;
+    if(el >= this.confirm && !this.confirmed){ this.confirmed = true; this.count++; }
+    return el;
+  }
+  close(now){
+    if(this.since!==null && this.confirmed){
+      const ev = store.get("fdg_events");
+      ev.push({session:S.id, time:stamp(new Date(this.since)), event:this.name, duration:+((now-this.since)/1000).toFixed(1)});
+      store.set("fdg_events", ev);
+    }
+    this.since=null; this.confirmed=false;
+  }
+}
+
+/* ---------- وضعیت جلسه ---------- */
+let S = null, landmarker = null, stream = null, raf = 0;
+const video = $("video"), cv = $("overlay"), cx = cv.getContext("2d");
+
+function newSession(){
+  const t0 = Date.now();
+  return {id: stamp(new Date(t0)).replace(/\D/g,""), t0, tracked:0, focused:0, alarms:0, alarmOn:false,
+    eye:new Tracker("eyes_closed",CFG.closed), yawn:new Tracker("yawn",CFG.yawn), head:new Tracker("head_down",CFG.head),
+    calibrated:false, calStart:t0, cal:{e:[],m:[],p:[]}, th:{ear:.21,mar:.6,pitch:1}, last:t0};
+}
+
+$("start").onclick = async () => {
+  $("start").disabled = true; $("hint").textContent = "در حال بارگذاری مدل...";
+  try{
+    if(!landmarker){
+      const fs = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+      landmarker = await FaceLandmarker.createFromOptions(fs, {
+        baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"},
+        runningMode:"VIDEO", numFaces:1});
+    }
+    stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480}});
+    video.srcObject = stream; await video.play();
+    cv.width = video.videoWidth; cv.height = video.videoHeight;
+    S = newSession();
+    $("hint").style.display = "none";
+    $("stop").disabled = false; $("recal").disabled = false;
+    ["cYawn","cEye","cHead","cAlarm"].forEach(i => $(i).textContent = "0");
+    loop();
+  }catch(err){
+    $("start").disabled = false;
+    $("hint").style.display = "flex";
+    $("hint").textContent = "شروع نشد: " + (err.name === "NotAllowedError"
+      ? "اجازه دوربین داده نشد. از نوار آدرس مرورگر اجازه را فعال و دوباره تلاش کنید."
+      : err.message + " (صفحه باید با https یا localhost باز شده باشد.)");
+  }
+};
+$("recal").onclick = () => { if(S){ S.calibrated=false; S.calStart=Date.now(); S.cal={e:[],m:[],p:[]}; } };
+$("stop").onclick = endSession;
+
+function setStatus(t, c){ const el=$("status"); el.textContent=t; el.style.color=c; }
+
+function loop(){
+  raf = requestAnimationFrame(loop);
+  if(video.readyState < 2) return;
+  const now = Date.now(), dt = Math.min((now - S.last)/1000, .5); S.last = now;
+  const res = landmarker.detectForVideo(video, performance.now());
+  const w = cv.width, h = cv.height;
+  cx.clearRect(0,0,w,h);
+  let danger = false, unfocused = false, msgs = [];
+
+  if(res.faceLandmarks && res.faceLandmarks.length){
+    const lm = res.faceLandmarks[0];
+    const pl = pts(lm,L_EYE,w,h), pr = pts(lm,R_EYE,w,h), pm = pts(lm,MOUTH,w,h);
+    const e = (ear(pl)+ear(pr))/2, m = mar(pm), p = pitchOf(lm);
+    cx.fillStyle = "#4ade80";
+    [...pl,...pr,...pm].forEach(q => { cx.beginPath(); cx.arc(q[0],q[1],2.5,0,7); cx.fill(); });
+    $("raw").textContent = `${e.toFixed(2)} / ${m.toFixed(2)} / ${p.toFixed(2)}`;
+
+    if(!S.calibrated){
+      S.cal.e.push(e); S.cal.m.push(m); S.cal.p.push(p);
+      const left = Math.max(0, CFG.calib - (now - S.calStart)/1000);
+      setStatus(`کالیبراسیون... ${fa(Math.ceil(left))}`, "var(--warn)");
+      if(left <= 0){
+        S.th = {ear: median(S.cal.e)*.65, mar: Math.max(median(S.cal.m)+.25,.5), pitch: median(S.cal.p)};
+        S.calibrated = true;
+      }
+    }else{
+      const eEl = S.eye.update(e < S.th.ear, now), yEl = S.yawn.update(m > S.th.mar, now),
+            hEl = S.head.update(p > S.th.pitch*(1+CFG.pitchTh/50), now);
+      if(eEl>0){ msgs.push(`چشم بسته ${fa(eEl.toFixed(1))} ثانیه`); if(eEl>=CFG.eyeUnfocus) unfocused = true; if(eEl>=CFG.closed){ danger = true; $("banner").textContent="بیدار شو!"; } }
+      if(yEl>0){ msgs.push(`دهان باز ${fa(yEl.toFixed(1))} ثانیه`); if(S.yawn.confirmed) unfocused = true; }
+      if(hEl>0){ msgs.push(`سر پایین ${fa(hEl.toFixed(1))} ثانیه`); if(hEl>=CFG.head){ unfocused = true; danger = true; $("banner").textContent="سرت را بالا بگیر!"; } }
+      S.tracked += dt; if(!unfocused) S.focused += dt;
+      setStatus(msgs.length ? msgs.join(" · ") : "هوشیار", danger ? "var(--bad)" : msgs.length ? "var(--warn)" : "var(--ok)");
+    }
+  }else{
+    setStatus("چهره دیده نمی‌شود", "var(--bad)");
+    [S.eye,S.yawn,S.head].forEach(t => t.update(false, now));
+  }
+
+  $("banner").style.display = danger ? "block" : "none";
+  if(danger && !S.alarmOn){ S.alarmOn = true; S.alarms++; alarmStart(); }
+  if(!danger && S.alarmOn){ S.alarmOn = false; alarmStop(); }
+
+  const sc = S.tracked > 0 ? S.focused/S.tracked*100 : 100;
+  $("score").textContent = S.calibrated ? fa(Math.round(sc)) + "٪" : "—";
+  $("scoreBar").style.width = (S.calibrated ? sc : 0) + "%";
+  $("scoreBar").style.background = sc>=80 ? "var(--ok)" : sc>=60 ? "var(--warn)" : "var(--bad)";
+  const secs = Math.floor((now - S.t0)/1000);
+  $("dur").textContent = fa(Math.floor(secs/60) + ":" + pad(secs%60));
+  $("cYawn").textContent = fa(S.yawn.count); $("cEye").textContent = fa(S.eye.count);
+  $("cHead").textContent = fa(S.head.count); $("cAlarm").textContent = fa(S.alarms);
+}
+
+function endSession(){
+  if(!S) return;
+  cancelAnimationFrame(raf); alarmStop();
+  const now = Date.now();
+  [S.eye,S.yawn,S.head].forEach(t => t.close(now));
+  if(stream) stream.getTracks().forEach(t => t.stop());
+  video.srcObject = null; cx.clearRect(0,0,cv.width,cv.height);
+  $("banner").style.display = "none";
+  const score = S.tracked > 0 ? S.focused/S.tracked*100 : 0;
+  if(S.tracked >= 10){
+    const ss = store.get("fdg_sessions");
+    ss.push({id:S.id, start:stamp(new Date(S.t0)), end:stamp(new Date(now)), duration:Math.round((now-S.t0)/1000),
+      tracked:Math.round(S.tracked), focused:Math.round(S.focused), score:+score.toFixed(1),
+      yawns:S.yawn.count, eye:S.eye.count, head:S.head.count, alarms:S.alarms});
+    store.set("fdg_sessions", ss);
+    setStatus(`جلسه ذخیره شد. امتیاز تمرکز: ${fa(score.toFixed(0))}٪`, "var(--ok)");
+  }else{
+    setStatus("جلسه کوتاه‌تر از ۱۰ ثانیه بود و ذخیره نشد", "var(--warn)");
+  }
+  $("hint").style.display = "flex"; $("hint").textContent = "جلسه تمام شد. برای جلسه جدید «شروع پایش» را بزنید.";
+  $("start").disabled = false; $("stop").disabled = true; $("recal").disabled = true;
+  S = null;
+}
+window.addEventListener("pagehide", () => { if(S) endSession(); });
+
+/* ---------- گزارش ---------- */
+function table(el, head, rows){
+  el.innerHTML = rows.length
+    ? "<tr>" + head.map(x=>`<th>${x}</th>`).join("") + "</tr>" + rows.map(r=>"<tr>"+r.map(c=>`<td>${c}</td>`).join("")+"</tr>").join("")
+    : `<tr><td class="empty">هنوز داده‌ای ثبت نشده است.</td></tr>`;
+}
+const evName = {eyes_closed:"چشم بسته", yawn:"خمیازه", head_down:"سر پایین"};
+
+function renderReport(){
+  const ss = store.get("fdg_sessions"), ev = store.get("fdg_events");
+  const tracked = ss.reduce((a,s)=>a+s.tracked,0), focused = ss.reduce((a,s)=>a+s.focused,0);
+  const box = (l,v) => `<div class="card"><div style="color:var(--mute)">${l}</div><div class="big" style="font-size:1.8rem">${v}</div></div>`;
+  $("totals").innerHTML = box("تعداد جلسه", fa(ss.length)) + box("مجموع زمان پایش", fa((tracked/60).toFixed(1))+" دقیقه")
+    + box("میانگین تمرکز", tracked ? fa((focused/tracked*100).toFixed(0))+"٪" : "—")
+    + box("مجموع آلارم", fa(ss.reduce((a,s)=>a+s.alarms,0)));
+
+  const days = [...Array(7)].map((_,i)=>{ const d=new Date(); d.setDate(d.getDate()-6+i); return d; });
+  const agg = days.map(d => {
+    const k = dayKey(d), list = ss.filter(s => s.start.startsWith(k));
+    const t = list.reduce((a,s)=>a+s.tracked,0), f = list.reduce((a,s)=>a+s.focused,0);
+    return {d, n:list.length, t, score: t ? f/t*100 : null,
+      y:list.reduce((a,s)=>a+s.yawns,0), e:list.reduce((a,s)=>a+s.eye,0), h:list.reduce((a,s)=>a+s.head,0)};
+  });
+  drawChart(agg);
+  table($("dayTable"), ["روز","جلسه","زمان (دقیقه)","تمرکز","خمیازه","چشم بسته","سر پایین"],
+    agg.map(a => [a.d.toLocaleDateString("fa-IR",{weekday:"long",month:"numeric",day:"numeric"}), fa(a.n), fa((a.t/60).toFixed(1)),
+      a.score===null ? "بدون داده" : fa(a.score.toFixed(0))+"٪", fa(a.y), fa(a.e), fa(a.h)]));
+  table($("sessTable"), ["شروع","مدت (ثانیه)","تمرکز","خمیازه","چشم بسته","سر پایین","آلارم"],
+    [...ss].reverse().slice(0,20).map(s => [s.start, fa(s.duration), fa(Math.round(s.score))+"٪", fa(s.yawns), fa(s.eye), fa(s.head), fa(s.alarms)]));
+  table($("evTable"), ["زمان","رویداد","مدت (ثانیه)"],
+    [...ev].reverse().slice(0,30).map(e => [e.time, evName[e.event]||e.event, fa(e.duration)]));
+}
+
+function drawChart(agg){
+  const c = $("chart"), dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth, H = c.clientHeight; c.width = W*dpr; c.height = H*dpr;
+  const g = c.getContext("2d"); g.scale(dpr,dpr); g.clearRect(0,0,W,H);
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const L = 36, B = 34, T = 14, pw = W-L-8, ph = H-B-T, bw = pw/7;
+  g.font = "12px Vazirmatn,Tahoma"; g.textAlign = "center"; g.fillStyle = col("--mute"); g.strokeStyle = col("--line");
+  [0,20,40,60,80,100].forEach(v => {
+    const y = T + ph*(1-v/100); g.beginPath(); g.moveTo(L,y); g.lineTo(W-8,y); g.stroke();
+    g.textAlign = "right"; g.fillText(v, L-6, y+4);
+  });
+  g.textAlign = "center";
+  agg.forEach((a,i) => {
+    const x = L + bw*i + bw*.2, w = bw*.6;
+    if(a.score !== null){
+      const hh = ph*a.score/100;
+      g.fillStyle = a.score>=80 ? col("--ok") : a.score>=60 ? col("--warn") : col("--bad");
+      g.fillRect(x, T+ph-hh, w, hh);
+      g.fillStyle = col("--ink"); g.fillText(fa(a.score.toFixed(0))+"٪", x+w/2, T+ph-hh-5);
+    }else{ g.fillStyle = col("--mute"); g.fillText("بدون داده", x+w/2, T+ph-6); }
+    g.fillStyle = col("--mute");
+    g.fillText(a.d.toLocaleDateString("fa-IR",{weekday:"short"}), x+w/2, H-16);
+    g.fillText(a.d.toLocaleDateString("fa-IR",{month:"numeric",day:"numeric"}), x+w/2, H-2);
+  });
+}
+window.addEventListener("resize", () => { if($("report").classList.contains("on")) renderReport(); });
+
+/* ---------- دانلود و پاک کردن ---------- */
+function csv(name, rows, keys){
+  const text = "\ufeff" + keys.join(",") + "\n" + rows.map(r => keys.map(k => r[k]).join(",")).join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], {type:"text/csv;charset=utf-8"}));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+$("dlSess").onclick = () => csv("sessions.csv", store.get("fdg_sessions"), ["id","start","end","duration","tracked","focused","score","yawns","eye","head","alarms"]);
+$("dlEv").onclick = () => csv("events.csv", store.get("fdg_events"), ["session","time","event","duration"]);
+$("clear").onclick = () => { if(confirm("همه جلسه‌ها و رویدادها پاک شوند؟")){ store.set("fdg_sessions",[]); store.set("fdg_events",[]); renderReport(); } };
+renderReport();
+</script>
+</body>
+</html>
